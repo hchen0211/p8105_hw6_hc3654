@@ -18,3 +18,19 @@ library(mgcv)
 cities_df <- read_csv("https://raw.githubusercontent.com/washingtonpost/data-homicides/refs/heads/master/homicide-data.csv")
 ```
 
+## Clean data
+
+```{r}
+cities_clean_df <- cities_df |> 
+  mutate(city_state = paste(city,state,sep = ", "), 
+         homicide = case_when(
+          disposition == "Closed without arrest" ~ 0, 
+          disposition == "Open/No arrest" ~ 0,
+          disposition == "Closed by arrest" ~ 1)) |> 
+  filter(city_state != c("Dallas, TX", "Phoenix, AZ", "Kansas City, MO", "Tulsa, AL")) |> 
+  filter(victim_race == c("White", "Black")) |> 
+  mutate(victim_age = as.numeric(victim_age
+  )) 
+  
+```
+
