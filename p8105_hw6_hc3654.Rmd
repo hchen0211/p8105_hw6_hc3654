@@ -1,0 +1,20 @@
+---
+title: "p8105_hw6_hc3654"
+output: github_document
+---
+
+```{r}
+library(p8105.datasets)
+data("weather_df")
+library(tidyverse)
+library(modelr)
+library(mgcv)
+```
+
+
+# Problem 1:
+
+```{r}
+cities_df <- read_csv("https://raw.githubusercontent.com/washingtonpost/data-homicides/refs/heads/master/homicide-data.csv")
+```
+
