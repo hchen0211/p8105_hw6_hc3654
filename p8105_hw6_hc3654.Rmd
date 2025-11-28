@@ -4,8 +4,6 @@ output: github_document
 ---
 
 ```{r}
-library(p8105.datasets)
-data("weather_df")
 library(tidyverse)
 library(modelr)
 library(mgcv)
@@ -88,7 +86,84 @@ The plot reveals that the adjusted Odds Ratio (OR) is less than 1 for the majori
 
 However, a crucial finding is that the confidence interval for the OR includes 1 for most cities. This means we lack sufficient statistical evidence to claim a significant gender difference in clearance rates in the majority of locations.
 
-The results highlight two extremes: New York, NY, exhibits the strongest disparity (OR lowest), where the difference in solved odds between male and female victims is most pronounced and statistically significant. Conversely, Albuquerque, NM, holds the highest OR, suggesting male victims' cases are either equally or more likely to be solved there.
+The results highlight two extremes: New York, NY, exhibits the strongest disparity (OR lowest), where the difference in solved odds between male and female victims is most pronounced and statistically significant. Conversely, Albuquerque, NM, holds the highest OR, suggesting male victims' cases are either equally or more likely to be solved there, it's not significant due to including the 1.0.
 
 The clustering of most OR estimates between 0.5 and 1.0 confirms that while a bias exists, the magnitude of the disadvantage for male victims is generally moderate to significant across the cities, driving the overall conclusion that female victims' homicides are generally more likely to be solved across the dataset.
+
+
+# Problem 2:
+
+```{r}
+library(p8105.datasets)
+data("weather_df")
+```
+
+
+```{r}
+weather_cleaned_df = weather_df |> 
+  na.omit()
+
+fit_t <- lm(tmax ~ tmin + prcp, data = weather_cleaned_df) 
+
+fit_t |> 
+  broom::tidy() |> 
+  filter(term == "tmin"| term == "prcp") |> 
+  select(term, estimate) |> 
+  pivot_wider(
+    names_from = term,
+    values_from = estimate
+  ) |> 
+  mutate(ratio = tmin/prcp) |> 
+  select(ratio)
+
+
+fit_t |> 
+  broom::glance() |> 
+  select(r.squared)
+
+```
+
+
+```{r}
+set.seed(1)
+
+fit_bootstrap = 
+  weather_cleaned_df |> 
+  bootstrap(n = 5) |> 
+  mutate(
+    df = map(strap, as_tibble),
+    fits = map(df, \(df) lm(tmax ~ tmin + prcp, data = df))
+  ) |> 
+  mutate(r_squared = map_dbl(fits, 
+                        .f = ~ broom::glance(.x) |> pull(r.squared)
+    )) |>
+  mutate(
+      beta_ratio = map_dbl(fits, 
+                         .f = ~ broom::tidy(.x) |> 
+                           filter(term %in% c("tmin", "prcp")) |> 
+                           select(term, estimate) |> 
+                           pivot_wider(names_from = term, values_from = estimate) |> 
+                           mutate(ratio = tmin / prcp) |>
+                           pull(ratio))) |> 
+  select(.id, r_squared, beta_ratio)
+
+
+
+
+ggplot(fit_bootstrap, aes(x = r_squared)) +
+  geom_density(fill = "lightblue", alpha = 0.6) +
+  labs(title = "Bootstrap Distribution of R-squared", x = "R^2 Estimate") +
+  theme_minimal()
+
+
+fit_bootstrap |>
+  summarize(
+    R2_lower = quantile(r_squared, 0.025),
+    R2_upper = quantile(r_squared, 0.975),
+    
+    Ratio_lower = quantile(beta_ratio, 0.025, na.rm = TRUE),
+    Ratio_upper = quantile(beta_ratio, 0.975, na.rm = TRUE)
+  ) |> 
+    knitr::kable()
+```
 
