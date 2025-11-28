@@ -49,7 +49,7 @@ fit_log |>
    filter(term == "victim_sexMale") |> 
   mutate(OR = exp(estimate), OR_lower = exp(conf.low), OR_higher = exp(conf.high)) |>
   select(term, OR, OR_lower, OR_higher) |> 
-  knitr::kable()
+  knitr::kable(digits = 3)
 ```
 
 ## For all cities 
@@ -72,6 +72,9 @@ filter(term == "victim_sexMale") |>
   mutate(OR = exp(estimate), OR_lower = exp(conf.low), OR_higher = exp(conf.high)) |>
   select(term, OR, OR_lower, OR_higher) |> 
   arrange(OR)
+
+odds_ratios_cities |> 
+  select(-term)
 
 odds_ratios_cities|> 
 ggplot(aes(x = OR, y = fct_reorder(city_state, OR)))+
@@ -129,7 +132,7 @@ set.seed(1)
 
 fit_bootstrap = 
   weather_cleaned_df |> 
-  bootstrap(n = 5) |> 
+  bootstrap(n = 5000) |> 
   mutate(
     df = map(strap, as_tibble),
     fits = map(df, \(df) lm(tmax ~ tmin + prcp, data = df))
@@ -147,9 +150,11 @@ fit_bootstrap =
                            pull(ratio))) |> 
   select(.id, r_squared, beta_ratio)
 
+```
 
+### For R^2 
 
-
+```{r}
 ggplot(fit_bootstrap, aes(x = r_squared)) +
   geom_density(fill = "lightblue", alpha = 0.6) +
   labs(title = "Bootstrap Distribution of R-squared", x = "R^2 Estimate") +
@@ -159,11 +164,105 @@ ggplot(fit_bootstrap, aes(x = r_squared)) +
 fit_bootstrap |>
   summarize(
     R2_lower = quantile(r_squared, 0.025),
-    R2_upper = quantile(r_squared, 0.975),
-    
+    R2_upper = quantile(r_squared, 0.975)
+  ) |> 
+    knitr::kable(digits = 3)
+```
+
+
+### For Beta(1) / Beta(2)
+
+```{r}
+ggplot(fit_bootstrap, aes(x = beta_ratio)) +
+  geom_density(fill = "lightblue", alpha = 0.6) +
+  labs(title = "Bootstrap Distribution of R-squared", x = "R^2 Estimate") +
+  theme_minimal()
+
+
+fit_bootstrap |>
+  summarize(
     Ratio_lower = quantile(beta_ratio, 0.025, na.rm = TRUE),
     Ratio_upper = quantile(beta_ratio, 0.975, na.rm = TRUE)
   ) |> 
-    knitr::kable()
+    knitr::kable(digits = 3)
 ```
+
+
+# Problem 3:
+
+```{r}
+baby_df_cleaned = read.csv("birthweight.csv") |> 
+  janitor::clean_names() |> 
+  mutate(babysex = as.factor(babysex), frace = as.factor(frace), malform = as.factor(malform), mrace = as.factor(mrace), parity = as.factor(parity), smoken = as.factor(smoken)) |> 
+  drop_na()
+
+
+my_mod <- lm(bwt ~ mheight + delwt + mrace, data = baby_df_cleaned) 
+
+
+baby_df_cleaned|> 
+  add_predictions(my_mod) |> 
+  add_residuals(my_mod) |> 
+  ggplot(aes(x = pred, y = resid))+
+  geom_point(alpha = 0.5)+
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red")+
+  labs(title = "residuals vs. predictions",
+       subtitle = "model: bwt ~ mheight + delwt + mrace ",
+       x = "predictions",
+       y = "residuals") +
+  theme_bw()
+```
+```{r}
+# Other two models
+main_effs_mod = lm(bwt ~ blength + gaweeks, data = baby_df_cleaned)
+
+three_ways_mod = lm(bwt ~ bhead + blength+ babysex, data = baby_df_cleaned)
+```
+
+
+```{r}
+# Comparison 
+
+cv_df = 
+  modelr::crossv_mc(baby_df_cleaned, n = 100) |> 
+  mutate(
+    train = map(train, as_tibble),
+    test = map(test, as_tibble)
+  )
+
+cv_df_fits <- cv_df |>
+  mutate(
+    my_mod_fit = map(train, \(df) lm(my_mod, data = df)),
+    main_effs_mod_fit = map(train, \(df) lm(main_effs_mod, data = df)),
+    three_ways_mod_fit = map(train, \(df) lm(three_ways_mod, data = df))
+  ) |> 
+  mutate(
+    rmse_my_mod = map2_dbl(my_mod_fit, test, modelr::rmse),
+    rmse_main_effs = map2_dbl(main_effs_mod_fit, test, modelr::rmse),
+    rmse_three_ways = map2_dbl(three_ways_mod_fit, test, modelr::rmse)
+  )
+
+
+cv_df_fits |>
+  select(starts_with("rmse_")) |>
+  pivot_longer(everything(), names_to = "model", values_to = "rmse") |>
+  group_by(model) |>
+  summarize(
+    rmse = mean(rmse),
+    .groups = "drop"
+  ) 
+
+
+cv_df_fits |> 
+  select(rmse_main_effs, rmse_three_ways, rmse_my_mod) |> 
+  pivot_longer(
+    everything(),
+    names_to = "mod",
+    values_to = "rmse",
+    names_prefix = "rmse_"
+  ) |> 
+  ggplot(aes(x = mod, y = rmse, fill = mod))+
+  geom_violin()
+```
+
 
