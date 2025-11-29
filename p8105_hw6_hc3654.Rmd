@@ -9,7 +9,6 @@ library(modelr)
 library(mgcv)
 ```
 
-
 # Problem 1:
 
 ```{r}
@@ -32,7 +31,7 @@ cities_clean_df <- cities_df |>
   
 ```
 
-## Regression 
+## Regression
 
 ```{r}
 fit_log = cities_clean_df |> 
@@ -52,7 +51,7 @@ fit_log |>
   knitr::kable(digits = 3)
 ```
 
-## For all cities 
+## For all cities
 
 ```{r}
 
@@ -83,6 +82,7 @@ ggplot(aes(x = OR, y = fct_reorder(city_state, OR)))+
                  height = 0.2, 
                  color = "darkgray")
 ```
+
 ### Comment:
 
 The plot reveals that the adjusted Odds Ratio (OR) is less than 1 for the majority of cities, indicating a prevailing pattern where female victims' homicides have a higher solved advantage (odds) than those of male victims.
@@ -93,14 +93,12 @@ The results highlight two extremes: New York, NY, exhibits the strongest dispari
 
 The clustering of most OR estimates between 0.5 and 1.0 confirms that while a bias exists, the magnitude of the disadvantage for male victims is generally moderate to significant across the cities, driving the overall conclusion that female victims' homicides are generally more likely to be solved across the dataset.
 
-
 # Problem 2:
 
 ```{r}
 library(p8105.datasets)
 data("weather_df")
 ```
-
 
 ```{r}
 weather_cleaned_df = weather_df |> 
@@ -125,7 +123,6 @@ fit_t |>
   select(r.squared)
 
 ```
-
 
 ```{r}
 set.seed(1)
@@ -152,7 +149,7 @@ fit_bootstrap =
 
 ```
 
-### For R^2 
+### For R\^2
 
 ```{r}
 ggplot(fit_bootstrap, aes(x = r_squared)) +
@@ -168,6 +165,8 @@ fit_bootstrap |>
   ) |> 
     knitr::kable(digits = 3)
 ```
+Comments: Here is the plot of distribution for R^2. We can see in most of the Beta Ratio estimate is between 0.93 to 0.95, The highest density is around -0.943. From the table I saw the lower bound for the 95% CI of beta ratio is 0.934. Upper Bound is -0.947. Which confirmed the results from our plot. 
+
 
 
 ### For Beta(1) / Beta(2)
@@ -175,7 +174,7 @@ fit_bootstrap |>
 ```{r}
 ggplot(fit_bootstrap, aes(x = beta_ratio)) +
   geom_density(fill = "lightblue", alpha = 0.6) +
-  labs(title = "Bootstrap Distribution of R-squared", x = "R^2 Estimate") +
+  labs(title = "Bootstrap Distribution of Beta Ratio", x = "Beta Ratio Estimate") +
   theme_minimal()
 
 
@@ -187,6 +186,8 @@ fit_bootstrap |>
     knitr::kable(digits = 3)
 ```
 
+Comments: Here is the plot of distribution for Beta(1)/Beta(2). We can see in most of the Beta Ratio estimate is between -100 to -300, The highest density is around -170. From the table I saw the lower bound for the 95% CI of beta ratio is -274.795. Upper Bound is -125.484. Which confirmed the results from our plot. 
+
 
 # Problem 3:
 
@@ -197,7 +198,7 @@ baby_df_cleaned = read.csv("birthweight.csv") |>
   drop_na()
 
 
-my_mod <- lm(bwt ~ mheight + delwt + mrace, data = baby_df_cleaned) 
+my_mod <- lm(bwt ~ mheight + delwt + mrace + menarche + momage, data = baby_df_cleaned) 
 
 
 baby_df_cleaned|> 
@@ -205,20 +206,38 @@ baby_df_cleaned|>
   add_residuals(my_mod) |> 
   ggplot(aes(x = pred, y = resid))+
   geom_point(alpha = 0.5)+
-  geom_hline(yintercept = 0, linetype = "dashed", color = "red")+
+  geom_smooth(type = "lm")+
   labs(title = "residuals vs. predictions",
        subtitle = "model: bwt ~ mheight + delwt + mrace ",
        x = "predictions",
        y = "residuals") +
   theme_bw()
 ```
+
+### Comments:
+
+My proposed model (my_mod) is built on a hypothesized structure intended to link easily accessible maternal and timing factors to the final birth weight (bwt, in grams). This selection strategy focuses on core inputs that are hypothesized to influence the environment for fetal growth.
+
+bwt ~ mheight + delwt + mrace + menarche + momage
+
+mheight (Mother's Height): Included to represent maternal structural frame size, which is a structural factor that may underlie fetal size capacity.
+
+delwt (Mother's Delivery Weight): This is used as a measure of maternal nutritional status and overall physical contribution to the pregnancy outcome.
+
+mrace (Mother's Race): Included as a necessary demographic covariate to account for known population-level variations that underly differences in baseline birth weight.
+
+menarche (Menarche Age) and momage (Mother's Age): These factors are selected to adjust for maternal biological maturity and timing, which are hypothesized to affect the efficiency and quality of the reproductive process.
+
+The scatter plot of Residuals vs. Fitted Values shows a wide, symmetric dispersion of points around the zero line, suggesting the model captures the overall linear trend reasonably well. The homoscedasticity (constant variance) assumption is largely met, as the spread of the residuals is consistent across the fitted range.
+
+While the smoothing curve indicates a minor, shallow deviation from perfect linearity, this trend is not systematic or strong enough to invalidate the model. The bulk of the predictions (up to 3500g) show minimal average residual deviation. Therefore, this model provides a reasonable first-order linear approximation using the selected maternal factors.
+
 ```{r}
 # Other two models
 main_effs_mod = lm(bwt ~ blength + gaweeks, data = baby_df_cleaned)
 
 three_ways_mod = lm(bwt ~ bhead + blength+ babysex, data = baby_df_cleaned)
 ```
-
 
 ```{r}
 # Comparison 
@@ -248,9 +267,10 @@ cv_df_fits |>
   pivot_longer(everything(), names_to = "model", values_to = "rmse") |>
   group_by(model) |>
   summarize(
-    rmse = mean(rmse),
+    mean_rmse = mean(rmse),
     .groups = "drop"
-  ) 
+  ) |> 
+  knitr::kable(digits = 3)
 
 
 cv_df_fits |> 
@@ -265,4 +285,12 @@ cv_df_fits |>
   geom_violin()
 ```
 
+### Comments: 
 
+The results strongly indicate that Model 3 (rmse_three_ways) is the optimal predictive model for birth weight among the three tested structures.
+
+Best Performance (rmse_three_ways): The lowest mean RMSE (288.584) is clearly demonstrated by the blue violin plot. Its shape is centered at the lowest point on the RMSE axis, confirming the best predictive performance on unseen data. The relative narrowness of this violin suggests the error is also highly stable across the 100 test splits.
+
+Worst Performance (rmse_my_mod): The highest mean RMSE (466.596) is shown by the green violin plot. Its position is the highest on the axis, showing that the maternal-focused model consistently produced the largest errors.
+
+Intermediate Performance (rmse_main_effs): The red violin is centered between the two extremes, confirming its moderate predictive capability.
