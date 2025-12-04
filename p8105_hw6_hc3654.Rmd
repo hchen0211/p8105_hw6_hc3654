@@ -211,6 +211,8 @@ baby_df_cleaned|>
        subtitle = "model: bwt ~ mheight + delwt + mrace ",
        x = "predictions",
        y = "residuals") +
+  geom_hline(yintercept = 0, 
+             linetype = "dashed") +
   theme_bw()
 ```
 
